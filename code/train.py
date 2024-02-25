@@ -16,7 +16,8 @@ from torchvision import models, transforms
 from tqdm import tqdm
 
 PATH_TO_DATA = os.path.join(os.path.dirname(__file__), '../data/ibug_300W_large_face_landmark_dataset')
-PATH_TO_MODELS = os.path.join(os.path.dirname(__file__), '../models')
+PATH_TO_MODELS = os.path.join(os.path.dirname(__file__), '../data/models')
+os.makedirs(PATH_TO_MODELS, exist_ok=True)
 
 
 class FaceLandmarksDataset(Dataset):
