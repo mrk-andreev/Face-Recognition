@@ -7,3 +7,4 @@ pillow==10.2.0
 matplotlib==3.8.3
 scikit-learn==1.4.1.post1
 opencv-python==4.9.0.80
+imutils==0.5.4
