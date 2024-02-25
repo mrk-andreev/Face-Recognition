@@ -1,3 +1,9 @@
+"""
+
+!wget http://dlib.net/files/data/ibug_300W_large_face_landmark_dataset.tar.gz -O data/ibug_300W_large_face_landmark_dataset.tar.gz
+!cd data/ && tar -xf ibug_300W_large_face_landmark_dataset.tar.gz
+
+"""
 import math
 import os
 import random
@@ -167,7 +173,6 @@ def train_alignment():
         all_images.append(filename.attrib['file'])
 
     val_split = set(random.sample(all_images, int(len(all_images) * 0.1)))
-    dataset = FaceLandmarksDataset(Transforms(mode='val'), val_split=val_split)
 
     train_dataset = FaceLandmarksDataset(Transforms(mode='train'), val_split=val_split, mode='train')
     valid_dataset = FaceLandmarksDataset(Transforms(mode='val'), val_split=val_split, mode='val')
