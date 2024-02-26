@@ -55,6 +55,52 @@ class FaceDetector:
         return faces_crops
 
 
+class FaceAligner:
+    def __init__(self, model_alignment_path, device):
+        self._model_align_faces = torch.load(model_alignment_path, map_location=torch.device(device))
+        self._model_align_faces.eval()
+
+    def _get_landmarks(self, img):
+        img = tf.to_tensor(img)
+        img = tf.resize(img, [224, 224])
+        img = tf.normalize(img, [0.5], [0.5])
+        img = img[None, :, :, :]
+
+        with torch.no_grad():
+            inputs = img
+            outputs = self._model_align_faces(inputs)
+            outputs = (outputs + 0.5) * 224
+            outputs = outputs.view(-1, 68, 2)
+        return outputs[0].numpy()
+
+    @classmethod
+    def _find_angle(cls, eye_points):
+        (left_eye_x, left_eye_y), (right_eye_x, right_eye_y) = eye_points
+        return math.atan((left_eye_y - right_eye_y) / (left_eye_x - right_eye_x)) * (180 / math.pi)
+
+    @classmethod
+    def _rotate_image(cls, image, angle):
+        image_center = tuple(np.array(image.shape[1::-1]) / 2)
+        rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+        result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
+        return result
+
+    def _get_align_img(self, img, landmarks):
+        eye_points = (landmarks[39], landmarks[42])
+        angle = self._find_angle(eye_points)
+        align_img = self._rotate_image(img, angle)
+        return align_img
+
+    def align_faces(self, images):
+        aligned_images = []
+        for image in images:
+            gray_img = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            landmarks = self._get_landmarks(gray_img)
+            aligned_image = self._get_align_img(image, landmarks)
+            aligned_images.append(aligned_image)
+        return aligned_images
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='Face-Recognition Predict Pipeline'
@@ -81,48 +127,9 @@ def main():
 
     device = args.device
     face_detector = FaceDetector(device, min_face_size=args.min_face_size)
-    model_align_faces = torch.load(args.model_alignment_path, map_location=torch.device(device))
+    face_aligner = FaceAligner(args.model_alignment_path, device)
     model_embeddings = ModelWithoutLastLayer(torch.load(args.model_embeddings_path, map_location=torch.device(device)))
     input_image_path = args.input_image_path
-
-    def align_face(crop_image_list):
-        def get_landmarks(img):
-            img = tf.to_tensor(img)
-            img = tf.resize(img, [224, 224])
-            img = tf.normalize(img, [0.5], [0.5])
-            img = img[None, :, :, :]
-
-            model_align_faces.eval()
-            with torch.no_grad():
-                inputs = img
-                outputs = model_align_faces(inputs)
-                outputs = (outputs + 0.5) * 224
-                outputs = outputs.view(-1, 68, 2)
-            return outputs[0].numpy()
-
-        def get_align_img(img, landmarks):
-            def find_angle(eye_points):
-                (left_eye_x, left_eye_y), (right_eye_x, right_eye_y) = eye_points
-                return math.atan((left_eye_y - right_eye_y) / (left_eye_x - right_eye_x)) * (180 / math.pi)
-
-            def rotate_image(image, angle):
-                image_center = tuple(np.array(image.shape[1::-1]) / 2)
-                rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
-                result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
-                return result
-
-            eye_points = (landmarks[39], landmarks[42])
-            angle = find_angle(eye_points)
-            align_img = rotate_image(img, angle)
-            return align_img
-
-        align_img_list = []
-        for img in crop_image_list:
-            gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            landmarks = get_landmarks(gray_img)
-            final_align_img = get_align_img(img, landmarks)
-            align_img_list.append(final_align_img)
-        return align_img_list
 
     def compute_embeddings(align_img_list):
         model_embeddings.eval()
@@ -150,7 +157,7 @@ def main():
     image = cv2.imread(input_image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     crop_image_list = face_detector.detect_faces(image)
-    align_img_list = align_face(crop_image_list)
+    align_img_list = face_aligner.align_faces(crop_image_list)
     embeddings = compute_embeddings(align_img_list)
     print(embeddings)
 
