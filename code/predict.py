@@ -16,13 +16,12 @@ MODELS_DEFAULT_DIR = os.path.join(os.path.dirname(__file__), '../data/models')
 class ModelLandmark(nn.Module):
     def __init__(self, model, n_classes):
         super(ModelLandmark, self).__init__()
-        self.model = model
-        self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.model.fc = nn.Linear(self.model.fc.in_features, n_classes)
+        self._model = model
+        self._model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self._model.fc = nn.Linear(self.model.fc.in_features, n_classes)
 
     def forward(self, x):
-        x = self.model(x)
-        return x
+        return self._model(x)
 
 
 class FaceDetector:
