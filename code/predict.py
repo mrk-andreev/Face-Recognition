@@ -1,3 +1,4 @@
+import argparse
 import math
 import os
 
@@ -10,10 +11,6 @@ from PIL import Image
 from facenet_pytorch import MTCNN
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '../data/models')
-PATH_TO_IMAGE = os.path.join(
-    os.path.dirname(__file__),
-    '../data/example.webp'
-)
 
 
 class ModelLandmark(nn.Module):
@@ -39,11 +36,25 @@ class ModelWithoutLastLayer(nn.Module):
 
 def main():
     device = 'cpu'
-    model_alignment_path = os.path.join(MODELS_DIR, 'model_alignment.bin')
+
+    parser = argparse.ArgumentParser(
+        prog='Face-Recognition Predict Pipeline'
+    )
+    parser.add_argument('--input_image_path', required=True)
+    parser.add_argument(
+        '--model_alignment_path',
+        default=os.path.join(MODELS_DIR, 'model_alignment.bin')
+    )
+    parser.add_argument(
+        '--model_embeddings_path',
+        default=os.path.join(MODELS_DIR, 'model_ce.bin')
+    )
+    args = parser.parse_args()
+
     mtcnn = MTCNN(keep_all=True, device=device, min_face_size=200)
-    model_align_faces = torch.load(model_alignment_path, map_location=torch.device(device))
-    model_embeddings = ModelWithoutLastLayer(
-        torch.load(os.path.join(MODELS_DIR, 'model_ce.bin'), map_location=torch.device(device)))
+    model_align_faces = torch.load(args.model_alignment_path, map_location=torch.device(device))
+    model_embeddings = ModelWithoutLastLayer(torch.load(args.model_embeddings_path, map_location=torch.device(device)))
+    input_image_path = args.input_image_path
 
     def detect_faces(image):
         img = Image.fromarray(image)
@@ -67,7 +78,7 @@ def main():
     def align_face(crop_image_list):
         def get_landmarks(img):
             img = TF.to_tensor(img)
-            img = TF.resize(img, (224, 224))
+            img = TF.resize(img, [224, 224])
             img = TF.normalize(img, [0.5], [0.5])
             img = img[None, :, :, :]
 
@@ -80,11 +91,9 @@ def main():
             return outputs[0].numpy()
 
         def get_align_img(img, landmarks):
-            def find_angle(eyePoints):
-                leftEyeX, leftEyeY = eyePoints[0]
-                rightEyeX, rightEyeY = eyePoints[1]
-                angle = math.atan((leftEyeY - rightEyeY) / (leftEyeX - rightEyeX)) * (180 / math.pi)
-                return angle
+            def find_angle(eye_points):
+                (left_eye_x, left_eye_y), (right_eye_x, right_eye_y) = eye_points
+                return math.atan((left_eye_y - right_eye_y) / (left_eye_x - right_eye_x)) * (180 / math.pi)
 
             def rotate_image(image, angle):
                 image_center = tuple(np.array(image.shape[1::-1]) / 2)
@@ -92,8 +101,8 @@ def main():
                 result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
                 return result
 
-            eyePoints = (landmarks[39], landmarks[42])
-            angle = find_angle(eyePoints)
+            eye_points = (landmarks[39], landmarks[42])
+            angle = find_angle(eye_points)
             align_img = rotate_image(img, angle)
             return align_img
 
@@ -111,7 +120,7 @@ def main():
         with torch.no_grad():
             for img in align_img_list:
                 img = TF.to_tensor(img)
-                img = TF.resize(img, (224, 224))
+                img = TF.resize(img, [224, 224])
                 img = TF.normalize(img, [0.5], [0.5])
                 img = img[None, :, :, :]
 
@@ -125,7 +134,7 @@ def main():
 
         return embeddings
 
-    image = cv2.imread(PATH_TO_IMAGE)
+    image = cv2.imread(input_image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     crop_image_list = detect_faces(image)
     align_img_list = align_face(crop_image_list)
