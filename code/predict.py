@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-import torchvision.transforms.functional as TF
+import torchvision.transforms.functional as tf
 from PIL import Image
 from facenet_pytorch import MTCNN
 
@@ -35,8 +35,6 @@ class ModelWithoutLastLayer(nn.Module):
 
 
 def main():
-    device = 'cpu'
-
     parser = argparse.ArgumentParser(
         prog='Face-Recognition Predict Pipeline'
     )
@@ -49,9 +47,20 @@ def main():
         '--model_embeddings_path',
         default=os.path.join(MODELS_DIR, 'model_ce.bin')
     )
+    parser.add_argument(
+        '--device',
+        default='cpu'
+    )
+    parser.add_argument(
+        '--min_face_size',
+        default=200,
+        type=int
+    )
     args = parser.parse_args()
 
-    mtcnn = MTCNN(keep_all=True, device=device, min_face_size=200)
+    device = args.device
+    min_face_size = args.min_face_size
+    mtcnn = MTCNN(keep_all=True, device=device, min_face_size=min_face_size)
     model_align_faces = torch.load(args.model_alignment_path, map_location=torch.device(device))
     model_embeddings = ModelWithoutLastLayer(torch.load(args.model_embeddings_path, map_location=torch.device(device)))
     input_image_path = args.input_image_path
@@ -77,9 +86,9 @@ def main():
 
     def align_face(crop_image_list):
         def get_landmarks(img):
-            img = TF.to_tensor(img)
-            img = TF.resize(img, [224, 224])
-            img = TF.normalize(img, [0.5], [0.5])
+            img = tf.to_tensor(img)
+            img = tf.resize(img, [224, 224])
+            img = tf.normalize(img, [0.5], [0.5])
             img = img[None, :, :, :]
 
             model_align_faces.eval()
@@ -119,9 +128,12 @@ def main():
         embeddings = []
         with torch.no_grad():
             for img in align_img_list:
-                img = TF.to_tensor(img)
-                img = TF.resize(img, [224, 224])
-                img = TF.normalize(img, [0.5], [0.5])
+                img = tf.to_tensor(img)
+                model_input_size = [224, 224]
+                img = tf.resize(img, model_input_size)
+                normalize_mean = [0.5]
+                normalize_std = [0.5]
+                img = tf.normalize(img, normalize_mean, normalize_std)
                 img = img[None, :, :, :]
 
                 img = img.to(device)
