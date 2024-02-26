@@ -34,6 +34,27 @@ class ModelWithoutLastLayer(nn.Module):
         return self.features(x)
 
 
+class FaceDetector:
+    def __init__(self, device, min_face_size=200):
+        self._mtcnn = MTCNN(keep_all=True, device=device, min_face_size=min_face_size)
+
+    def detect_faces(self, image):
+        boxes, _ = self._mtcnn.detect(Image.fromarray(image))
+        boxes = np.array(boxes, dtype=np.float32)
+
+        faces_crops = []
+        if boxes.shape:
+            for box in boxes:
+                x1 = int(box[1])
+                x2 = int(box[3])
+                y1 = int(box[0])
+                y2 = int(box[2])
+                crop_img = image[x1:x2, y1:y2:]
+                faces_crops.append(crop_img)
+
+        return faces_crops
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='Face-Recognition Predict Pipeline'
@@ -59,30 +80,10 @@ def main():
     args = parser.parse_args()
 
     device = args.device
-    min_face_size = args.min_face_size
-    mtcnn = MTCNN(keep_all=True, device=device, min_face_size=min_face_size)
+    face_detector = FaceDetector(device, min_face_size=args.min_face_size)
     model_align_faces = torch.load(args.model_alignment_path, map_location=torch.device(device))
     model_embeddings = ModelWithoutLastLayer(torch.load(args.model_embeddings_path, map_location=torch.device(device)))
     input_image_path = args.input_image_path
-
-    def detect_faces(image):
-        img = Image.fromarray(image)
-
-        boxes, _ = mtcnn.detect(img)
-        boxes = np.array(boxes, dtype=np.float32)
-
-        crop_image_list = []
-
-        if boxes.shape:
-            for box in boxes:
-                x1 = int(box[1])
-                x2 = int(box[3])
-                y1 = int(box[0])
-                y2 = int(box[2])
-                crop_img = image[x1:x2, y1:y2:]
-                crop_image_list.append(crop_img)
-
-        return crop_image_list
 
     def align_face(crop_image_list):
         def get_landmarks(img):
@@ -148,7 +149,7 @@ def main():
 
     image = cv2.imread(input_image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    crop_image_list = detect_faces(image)
+    crop_image_list = face_detector.detect_faces(image)
     align_img_list = align_face(crop_image_list)
     embeddings = compute_embeddings(align_img_list)
     print(embeddings)
