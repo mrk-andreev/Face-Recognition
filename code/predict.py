@@ -10,6 +10,10 @@ from PIL import Image
 from facenet_pytorch import MTCNN
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '../data/models')
+PATH_TO_IMAGE = os.path.join(
+    os.path.dirname(__file__),
+    '../data/example.webp'
+)
 
 
 class ModelLandmark(nn.Module):
@@ -121,10 +125,6 @@ def main():
 
         return embeddings
 
-    PATH_TO_IMAGE = os.path.join(
-        os.path.dirname(__file__),
-        '../data/example.webp'
-    )
     image = cv2.imread(PATH_TO_IMAGE)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     crop_image_list = detect_faces(image)
