@@ -25,15 +25,6 @@ class ModelLandmark(nn.Module):
         return x
 
 
-class ModelWithoutLastLayer(nn.Module):
-    def __init__(self, model):
-        super(ModelWithoutLastLayer, self).__init__()
-        self.features = nn.Sequential(*list(model.children())[:-1])
-
-    def forward(self, x):
-        return self.features(x)
-
-
 class FaceDetector:
     def __init__(self, device, min_face_size=200):
         self._mtcnn = MTCNN(keep_all=True, device=device, min_face_size=min_face_size)
@@ -101,6 +92,45 @@ class FaceAligner:
         return aligned_images
 
 
+class ModelWithoutLastLayer(nn.Module):
+    def __init__(self, model):
+        super(ModelWithoutLastLayer, self).__init__()
+        self.features = nn.Sequential(*list(model.children())[:-1])
+
+    def forward(self, x):
+        return self.features(x)
+
+
+class FaceEmbedding:
+    def __init__(self, model_embeddings_path, device):
+        self._model_embeddings = ModelWithoutLastLayer(
+            torch.load(model_embeddings_path, map_location=torch.device(device)))
+        self._device = device
+        self._model_embeddings.eval()
+
+    def compute_embeddings(self, align_img_list):
+        embeddings = []
+        with torch.no_grad():
+            for img in align_img_list:
+                img = tf.to_tensor(img)
+                model_input_size = [224, 224]
+                img = tf.resize(img, model_input_size)
+                normalize_mean = [0.5]
+                normalize_std = [0.5]
+                img = tf.normalize(img, normalize_mean, normalize_std)
+                img = img[None, :, :, :]
+
+                img = img.to(self._device)
+                outputs = self._model_embeddings(img)
+                if len(outputs) > 1:
+                    outputs = outputs[1]
+                outputs = outputs.detach().cpu().numpy()
+                outputs = [list(i.flatten()) for i in outputs]
+                embeddings.extend(outputs)
+
+        return embeddings
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='Face-Recognition Predict Pipeline'
@@ -128,37 +158,14 @@ def main():
     device = args.device
     face_detector = FaceDetector(device, min_face_size=args.min_face_size)
     face_aligner = FaceAligner(args.model_alignment_path, device)
-    model_embeddings = ModelWithoutLastLayer(torch.load(args.model_embeddings_path, map_location=torch.device(device)))
+    face_embedding = FaceEmbedding(args.model_embeddings_path, device)
     input_image_path = args.input_image_path
-
-    def compute_embeddings(align_img_list):
-        model_embeddings.eval()
-        embeddings = []
-        with torch.no_grad():
-            for img in align_img_list:
-                img = tf.to_tensor(img)
-                model_input_size = [224, 224]
-                img = tf.resize(img, model_input_size)
-                normalize_mean = [0.5]
-                normalize_std = [0.5]
-                img = tf.normalize(img, normalize_mean, normalize_std)
-                img = img[None, :, :, :]
-
-                img = img.to(device)
-                outputs = model_embeddings(img)
-                if len(outputs) > 1:
-                    outputs = outputs[1]
-                outputs = outputs.detach().cpu().numpy()
-                outputs = [list(i.flatten()) for i in outputs]
-                embeddings.extend(outputs)
-
-        return embeddings
 
     image = cv2.imread(input_image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     crop_image_list = face_detector.detect_faces(image)
     align_img_list = face_aligner.align_faces(crop_image_list)
-    embeddings = compute_embeddings(align_img_list)
+    embeddings = face_embedding.compute_embeddings(align_img_list)
     print(embeddings)
 
 
