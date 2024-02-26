@@ -10,7 +10,7 @@ import torchvision.transforms.functional as tf
 from PIL import Image
 from facenet_pytorch import MTCNN
 
-MODELS_DIR = os.path.join(os.path.dirname(__file__), '../data/models')
+MODELS_DEFAULT_DIR = os.path.join(os.path.dirname(__file__), '../data/models')
 
 
 class ModelLandmark(nn.Module):
@@ -138,11 +138,11 @@ def main():
     parser.add_argument('--input_image_path', required=True)
     parser.add_argument(
         '--model_alignment_path',
-        default=os.path.join(MODELS_DIR, 'model_alignment.bin')
+        default=os.path.join(MODELS_DEFAULT_DIR, 'model_alignment.bin')
     )
     parser.add_argument(
         '--model_embeddings_path',
-        default=os.path.join(MODELS_DIR, 'model_ce.bin')
+        default=os.path.join(MODELS_DEFAULT_DIR, 'model_ce.bin')
     )
     parser.add_argument(
         '--device',
