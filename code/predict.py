@@ -51,6 +51,15 @@ class FaceAligner:
         self._model_align_faces = torch.load(model_alignment_path, map_location=torch.device(device))
         self._model_align_faces.eval()
 
+    def align_faces(self, images):
+        aligned_images = []
+        for image in images:
+            gray_img = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            landmarks = self._get_landmarks(gray_img)
+            aligned_image = self._get_align_img(image, landmarks)
+            aligned_images.append(aligned_image)
+        return aligned_images
+
     def _get_landmarks(self, img):
         img = tf.to_tensor(img)
         img = tf.resize(img, [224, 224])
@@ -81,15 +90,6 @@ class FaceAligner:
         angle = self._find_angle(eye_points)
         align_img = self._rotate_image(img, angle)
         return align_img
-
-    def align_faces(self, images):
-        aligned_images = []
-        for image in images:
-            gray_img = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-            landmarks = self._get_landmarks(gray_img)
-            aligned_image = self._get_align_img(image, landmarks)
-            aligned_images.append(aligned_image)
-        return aligned_images
 
 
 class ModelWithoutLastLayer(nn.Module):
