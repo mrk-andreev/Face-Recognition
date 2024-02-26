@@ -29,10 +29,7 @@ os.makedirs(PATH_TO_MODELS, exist_ok=True)
 class FaceLandmarksDataset(Dataset):
 
     def __init__(self, transform=None, mode=None, val_split=None):
-        val_split = val_split or None
-
-        tree = ET.parse(f"{PATH_TO_DATA}/labels_ibug_300W_train.xml")
-        root = tree.getroot()
+        val_split = set(val_split or [])
 
         self.image_filenames = []
         self.landmarks = []
@@ -40,6 +37,8 @@ class FaceLandmarksDataset(Dataset):
         self.transform = transform
         self.root_dir = PATH_TO_DATA
         self.mode = mode
+
+        root = ET.parse(f"{PATH_TO_DATA}/labels_ibug_300W_train.xml").getroot()
 
         for filename in root[2]:
             if self.mode == 'val':
@@ -258,8 +257,8 @@ def train_alignment():
             torch.save(model.state_dict(), f'{PATH_TO_MODELS}/face_landmarks.pth')
         print(f"Epoch [{epoch + 1}/{n_epochs}], Val Loss: {avg_val_loss:.4f}")
 
-    torch.save(model, f'{PATH_TO_MODELS}/model_alignment.bin')
-    torch.save(model.state_dict(), f'{PATH_TO_MODELS}/model_weights_alignment.bin')
+    torch.save(model, f'{PATH_TO_MODELS}/model_alignment.pth')
+    torch.save(model.state_dict(), f'{PATH_TO_MODELS}/model_weights_alignment.pth')
 
 
 def main():

@@ -137,11 +137,11 @@ def main():
     parser.add_argument('--input_image_path', required=True)
     parser.add_argument(
         '--model_alignment_path',
-        default=os.path.join(MODELS_DEFAULT_DIR, 'model_alignment.bin')
+        default=os.path.join(MODELS_DEFAULT_DIR, 'model_alignment.pth')
     )
     parser.add_argument(
         '--model_embeddings_path',
-        default=os.path.join(MODELS_DEFAULT_DIR, 'model_ce.bin')
+        default=os.path.join(MODELS_DEFAULT_DIR, 'model_ce.pth')
     )
     parser.add_argument(
         '--device',

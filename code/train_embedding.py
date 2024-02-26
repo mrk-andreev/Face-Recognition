@@ -208,8 +208,8 @@ def main():
         val_acc.append(val_accuracy)
         print(f"Epoch [{epoch + 1}/{n_epochs}], Val Loss: {avg_val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}")
 
-    torch.save(model, f'{PATH_TO_MODELS}/model_ce.bin')
-    torch.save(model.state_dict(), f'{PATH_TO_MODELS}/model_ce_weights.bin')
+    torch.save(model, f'{PATH_TO_MODELS}/model_ce.pth')
+    torch.save(model.state_dict(), f'{PATH_TO_MODELS}/model_ce_weights.pth')
 
 
 if __name__ == '__main__':
